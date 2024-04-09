@@ -3,18 +3,12 @@ import numpy as np
 import SimpleITK as sitk
 import joblib
 
-from roma import console
 from skimage.transform import radon, iradon
-from xomics import MedicalImage
-from xomics.data_io.utils.preprocess import get_suv_factor
-from xomics.data_io.utils.raw_rw import reshape_image, resize_image_itk, \
-  resample_image_by_spacing
+from tqdm import tqdm
 
+from .img_process import reshape_image, resize_image_itk, \
+  resample_image_by_spacing, get_suv_factor
 
-#  images_dict =
-#  {'type1':
-#    {'path': [path], 'itk_img': [image_itk], 'img':[img_itk]}
-#  }
 
 
 class Indexer:
@@ -61,10 +55,8 @@ class Indexer:
       return self.get_data(item)
     elif isinstance(item, (list, np.ndarray)):
       data = []
-      for num, i in enumerate(item):
-        console.print_progress(num, len(item))
+      for num, i in tqdm(enumerate(item)):
         data.append(self.get_data(i))
-      console.clear_line()
       return data
     elif isinstance(item, slice):
       start = item.start if item.start else 0
@@ -77,10 +69,8 @@ class Indexer:
       else:
         iterator = iter(range(start, stop, step))
       data = []
-      for num, i in enumerate(iterator):
-        console.print_progress(num, int((stop-start)/step))
+      for num, i in tqdm(enumerate(iterator)):
         data.append(self.get_data(i))
-      console.clear_line()
       if step < 0:
         data.reverse()
       return data
@@ -570,46 +560,10 @@ class GeneralMI(AbstractGeneralMI):
 
   # endregion: test functions
 
-  # region: medical_image compatible
-
-
-  # region: end
 
 
 
 
 
-if __name__ == '__main__':
-  from dev.explorers.rld_explore.rld_explorer import RLDExplorer
-  csv_path = r'../../../data/02-RLD/rld_data.csv'
 
-  test = GeneralMI.get_test_sample(csv_path)
-  test.process_param['norm'] = 'PET'
-  test.process_param['shape'] = [440, 440, 560]
-  # test.process_param['percent'] = 99.9
-  # test.process_param['ct_window'] = [50, 500]
-
-  # test.LOW_MEM = True
-  num = 0
-  test = test[1:2]
-  img1 = test.images['240S'][num][200:201]
-  img2 = test.images['30G'][num][200:201]
-  sino = test.radon_transform(img1[0])
-  raw = test.radon_reverse(sino)
-  sino = np.expand_dims(sino, axis=0)
-  noise = sino[0] + np.random.poisson(sino[0])
-  noise = test.radon_reverse(noise)
-  noise = np.expand_dims(noise, axis=0)
-  raw = np.expand_dims(raw, axis=0)
-
-  # onehot = test.mask2onehot(test.images['CT_seg'][0], [5, 10, 11, 12, 13, 14, 51])
-  print(img1.shape, img2.shape)
-
-  mi = MedicalImage(test.pid[num], images={'t1': img1, 'noise': noise,
-                                           'test': sino, 'low': img2})
-  re = RLDExplorer([mi])
-  re.sv.set('vmin', auto_refresh=False)
-  re.sv.set('vmax', auto_refresh=False)
-  re.sv.set('cmap', 'gist_yarg')
-  re.show()
 
