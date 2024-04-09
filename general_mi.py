@@ -55,7 +55,7 @@ class Indexer:
       return self.get_data(item)
     elif isinstance(item, (list, np.ndarray)):
       data = []
-      for num, i in tqdm(enumerate(item)):
+      for num, i in tqdm(enumerate(item), total=len(item)):
         data.append(self.get_data(i))
       return data
     elif isinstance(item, slice):
@@ -65,11 +65,10 @@ class Indexer:
       if start > stop:
         start, stop = stop+1, start+1
       if step < 0:
-        iterator = iter(range(start, stop, -step))
-      else:
-        iterator = iter(range(start, stop, step))
+        step = -step
+      iterator = iter(range(start, stop, step))
       data = []
-      for num, i in tqdm(enumerate(iterator)):
+      for num, i in tqdm(enumerate(iterator), total=len(range(start, stop, step))):
         data.append(self.get_data(i))
       if step < 0:
         data.reverse()
