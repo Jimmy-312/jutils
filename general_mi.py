@@ -6,7 +6,7 @@ import joblib
 from skimage.transform import radon, iradon
 from tqdm import tqdm
 
-from .img_process import reshape_image, resize_image_itk, \
+from img_process import crop_image, resize_image, \
   resample_image_by_spacing, get_suv_factor
 
 
@@ -448,13 +448,13 @@ class GeneralMI(AbstractGeneralMI):
     if img_type != 'PET':
       std_type = self.STD_key
       if std_type in self.image_keys:
-        new_img = resize_image_itk(new_img, self.images[std_type].itk[0])
+        new_img = resize_image(new_img, self.images[std_type].itk[0])
       elif std_type in self.label_keys:
-        new_img = resize_image_itk(new_img, self.labels[std_type].itk[0])
+        new_img = resize_image(new_img, self.labels[std_type].itk[0])
     if self.process_param.get('crop'):
       new_img = GeneralMI.crop_by_margin(new_img, self.process_param['crop'])
     if self.process_param.get('shape'):
-      new_img = reshape_image(new_img, self.process_param['shape'])
+      new_img = crop_image(new_img, self.process_param['shape'])
 
     return new_img
 

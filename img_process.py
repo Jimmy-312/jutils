@@ -1,6 +1,8 @@
+import numpy as np
 import SimpleITK as sitk
 
 
+# region: suv calc
 
 def dicom_time(t):
   t = str(int(float(t)))
@@ -28,8 +30,11 @@ def get_suv_factor(tags):
 
   return SUVbwScaleFactor, RS, RI
 
+# endregion: suv calc
 
-def reshape_image(image, target_size):
+# region: image process
+
+def crop_image(image, target_size):
   original_size = image.GetSize()
 
   # 计算填充或裁剪的大小差异
@@ -42,26 +47,16 @@ def reshape_image(image, target_size):
   lower_pad = [int(size_diff[i] / 2) if size_diff[i] > 0 else 0 for i in range(3)]
   upper_pad = [size_diff[i] - lower_pad[i] if size_diff[i] > 0 else 0 for i in range(3)]
 
-  # 针对奇数尺寸的图像进行对称填充
-  # if any(size_diff[i] % 2 != 0 for i in range(3)):
-  #   lower_crop = [int(size_diff[i] / 2) for i in range(3)]
-  #   upper_crop = [size_diff[i] - lower_crop[i] for i in range(3)]
-  #   lower_pad = [lower_crop[i] if size_diff[i] % 2 == 0 else lower_crop[i] + 1
-  #                for i in range(3)]
-  #   upper_pad = [upper_crop[i] if size_diff[i] % 2 == 0 else upper_crop[i] + 1
-  #                for i in range(3)]
-  #
   # 对图像进行对称填充
   image = sitk.ConstantPad(image, lower_pad, upper_pad)
 
   # 对图像进行裁剪
-
   image = sitk.Crop(image, lower_crop, upper_crop)
 
   return image
 
 
-def resize_image_itk(ori_img, target_img=None,
+def resize_image(ori_img, target_img=None,
                      size=None, spacing=None, origin=None, direction=None,
                      resamplemethod=sitk.sitkLinear, raw=True):
   """
@@ -141,3 +136,80 @@ def resample_image_by_spacing(image, new_spacing, method=sitk.sitkLinear):
 
   return resampled_image
 
+# endregion: image process
+
+# region: image sample
+
+def windows_choose(distr: np.ndarray, windows_size):
+  assert np.NaN not in distr
+  x = np.linspace(0, distr.shape[0] - 1, distr.shape[0])
+  result = np.random.choice(x, p=distr)
+  result = result - windows_size / 2
+
+  if result < 0: result = 0
+  if result > distr.shape[0] - windows_size:
+    result = distr.shape[0] - windows_size
+
+  return int(result)
+
+
+def get_random_window(arr: np.ndarray, windows_size, true_rand=False):
+  # todo: true random
+  
+  def normalize(arr: np.array):
+    norm = np.linalg.norm(arr, ord=1)
+    return arr / norm
+  
+  assert len(arr.shape) == len(windows_size)
+  # todo: the input array should not have the channel dimension
+
+  arr = arr != 0
+  # arr = arr[:, ..., 0]
+
+  dimension = len(arr.shape)
+  sub_arr = []
+  for i in range(dimension):
+    sub_arr.append(np.any(arr, axis=tuple([j for j in range(dimension) if j != i])))
+
+  dist_list = []
+  for s_arr in sub_arr:
+    dist_list.append(normalize(s_arr.ravel()))
+
+  pos = []
+  for i, dist in enumerate(dist_list):
+    pos.append(windows_choose(dist, windows_size[i]))
+
+  return pos
+
+
+def get_sample(arr: np.ndarray, pos, windows_size):
+  assert len(pos) == len(windows_size)
+
+  for i, p, s in zip(range(len(pos)), pos, windows_size):
+    arr = np.take(arr, range(p, p + s), axis=i)
+  return arr
+
+
+def gen_windows_pair(arr1: np.ndarray, arr2: np.ndarray, batch_size,
+                windows_size, **kwargs):
+  features = []
+  targets = []
+  index = np.random.choice(range(arr1.shape[0]), batch_size)
+  arr1, arr2 = arr1[index], arr2[index]
+
+  for i in range(batch_size):
+    pos = get_random_window(arr1[i], windows_size, **kwargs)
+    features.append(get_sample(arr1[i], pos, windows_size))
+    targets.append(get_sample(arr2[i], pos, windows_size))
+  features = np.stack(features)
+  targets = np.stack(targets)
+
+  return features, targets
+
+def gen_windows(arr: np.ndarray, windows_size, **kwargs):
+  pos = get_random_window(arr, windows_size, **kwargs)
+  arr_crop = get_sample(arr, pos, windows_size)
+
+  return arr_crop
+
+# endregion: image sample
