@@ -474,7 +474,7 @@ class GeneralMI(AbstractGeneralMI):
           clip[1] = np.max(sitk.GetArrayFromImage(new_img))
         new_img = sitk.IntensityWindowing(new_img)
       if self.process_param.get('norm'):
-        if name == 'images':
+        if data_type == self.STD_key:
           new_img = sitk.RescaleIntensity(new_img, 0.0, 1.0)
         else:
           new_img = self.normalize(new_img, self.process_param['norm'],
