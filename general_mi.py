@@ -5,6 +5,7 @@ import joblib
 
 from skimage.transform import radon, iradon
 from tqdm import tqdm
+from threading import Thread
 
 from img_process import crop_image, resize_image, \
   resample_image_by_spacing, get_suv_factor
@@ -55,7 +56,7 @@ class Indexer:
       return self.get_data(item)
     elif isinstance(item, (list, np.ndarray)):
       data = []
-      for num, i in tqdm(enumerate(item), total=len(item)):
+      for num, i in enumerate(item):
         data.append(self.get_data(i))
       return data
     elif isinstance(item, slice):
@@ -68,7 +69,7 @@ class Indexer:
         step = -step
       iterator = iter(range(start, stop, step))
       data = []
-      for num, i in tqdm(enumerate(iterator), total=len(range(start, stop, step))):
+      for num, i in enumerate(iterator):
         data.append(self.get_data(i))
       if step < 0:
         data.reverse()
@@ -285,6 +286,32 @@ class AbstractGeneralMI:
       length = len(self.images_dict[key]['path'])
       self.images_dict[key]['img_itk'] = np.array([None] * length)
       self.images_dict[key]['img'] = np.array([None] * length)
+  
+  def pre_load(self, threads=4):
+    if threads == 1:
+      # todo: add progress bar
+      for key in self.image_keys:
+        self.images[key][:]
+      return
+    
+    total_num = len(self)
+    if threads > total_num:
+      threads = total_num
+    slices = [list(range(i, total_num, threads)) for i in range(threads)]
+    sum_num = len(slices)*len(self.image_keys)
+    self.a=1
+
+    with tqdm(total=sum_num, unit='threads') as bar:
+      t_list = []    
+      def load_data(key, num):
+        self.images[key][num]
+        bar.update(1)
+      for key in self.image_keys:
+        for i in range(threads):
+          t_list.append(Thread(target=load_data, args=(key, slices[i])))
+          t_list[-1].start()
+      for t in t_list:
+        t.join()
 
   # endregion: basic function
 
