@@ -192,11 +192,12 @@ class AbstractGeneralMI:
     pid = self.pid[item]
     image_dict = MIDictor()
     for key in self.images_dict.keys():
-      image_dict[key] = MIDictor.new(self.images_dict[key], key,
+      image_dict[key] = MIDictor.new({}, key,
                                      (PATH, RAW, ITK))
       image_dict[key][PATH] = self.images_dict[key][PATH][item]
       if key in self.image_keys:
         self.images_dict[key].auto_load = False
+        image_dict[key].auto_load = False
         if RAW in self.images_dict[key].keys():
           image_dict[key][RAW] = MIArray.new(self.images_dict[key][RAW][item],
                                              RAW, image_dict[key],
@@ -206,7 +207,7 @@ class AbstractGeneralMI:
                                              ITK, image_dict[key],
                                              self.data_process, self.LOW_MEM)
         self.images_dict[key].auto_load = True
-
+        image_dict[key].auto_load = True
     return self.__class__(image_dict, image_keys=self.image_keys,
                           label_keys=self.label_keys,
                           pid=pid, process_param=self.process_param,
@@ -322,8 +323,9 @@ class AbstractGeneralMI:
     for key in value:
       assert key in self.images_dict.keys()
       if key not in self.image_keys:
-        self.images_dict[key] = MIDictor.new(self.images_dict[key], key,
-                                             (PATH, RAW, ITK))
+        if not isinstance(self.images_dict[key], MIDictor):
+          self.images_dict[key] = MIDictor.new(self.images_dict[key], key,
+                                               (PATH, RAW, ITK))
         
         length = len(self.images_dict[key][PATH])
         self.images_dict[key][PATH] = self.images_dict[key][PATH]
