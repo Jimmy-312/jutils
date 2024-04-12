@@ -16,7 +16,7 @@ ITK = 'itk'
 IMG = 'img'
 NONAME = 'noname'
 
-
+# region: MI Basic Classes
 
 class MIProperty:
 
@@ -151,6 +151,7 @@ class MIDictor(dict):
     self.property.img_type = img_type
     return self.property
 
+# endregion: MI Basic Classes
 
 class AbstractGeneralMI:
   def __init__(self, images_dict, image_keys=None, label_keys=None,
@@ -253,11 +254,7 @@ class AbstractGeneralMI:
     self.remove(rm_pids)
 
   def clean_mem(self):
-    for key in self.images_dict.keys():
-      length = len(self.images_dict[key][PATH])
-      self.images_dict[key][RAW] = np.array([None] * length)
-      self.images_dict[key][ITK] = np.array([None] * length)
-    self.image_keys = self.image_keys
+    self.init_image_dict(self.image_keys, reset=True)
   
   def pre_load(self, threads=4):
     if threads == 1:
@@ -291,6 +288,25 @@ class AbstractGeneralMI:
       if data_type in item:
         return key
     return 'Unknown'
+  
+  def init_image_dict(self, value, reset=False):
+    for key in value:
+      assert key in self.images_dict.keys()
+      if key not in self.image_keys or reset:
+        if not isinstance(self.images_dict[key], MIDictor):
+          self.images_dict[key] = MIDictor.new(self.images_dict[key], key,
+                                               (PATH, RAW, ITK))
+        
+        length = len(self.images_dict[key][PATH])
+        self.images_dict[key][PATH] = self.images_dict[key][PATH]
+        if RAW not in self.images_dict[key].keys() or reset:
+          self.images_dict[key][RAW] = MIArray.new([None] * length, RAW,
+                                                   self.images_dict[key],
+                                                   self.raw_process, self.LOW_MEM)
+        if ITK not in self.images_dict[key].keys() or reset:
+          self.images_dict[key][ITK] = MIArray.new([None] * length, ITK,
+                                                   self.images_dict[key],
+                                                   self.data_process, self.LOW_MEM)
 
   # endregion: basic function
 
@@ -298,18 +314,22 @@ class AbstractGeneralMI:
 
   @property
   def images(self):
+    # return numpy.ndarray type img
     return self.images_dict.get_data(ITK)
   
   @property
   def raw_images(self):
+    # return numpy.ndarray type img without process
     return self.images_dict.get_data(RAW)
 
   @property
   def itk_imgs(self):
+    # return sitk.Image type img
     return self.images_dict.get_data(ITK, ITK)
 
   @property
   def itk_raws(self):
+    # return sitk.Image type img without process
     return self.images_dict.get_data(RAW, ITK)
 
   @property
@@ -320,26 +340,8 @@ class AbstractGeneralMI:
   def image_keys(self, value):
     if value is None:
       return
-    for key in value:
-      assert key in self.images_dict.keys()
-      if key not in self.image_keys:
-        if not isinstance(self.images_dict[key], MIDictor):
-          self.images_dict[key] = MIDictor.new(self.images_dict[key], key,
-                                               (PATH, RAW, ITK))
-        
-        length = len(self.images_dict[key][PATH])
-        self.images_dict[key][PATH] = self.images_dict[key][PATH]
-        if RAW not in self.images_dict[key].keys():
-          self.images_dict[key][RAW] = MIArray.new([None] * length, RAW,
-                                                   self.images_dict[key],
-                                                   self.raw_process, self.LOW_MEM)
-        if ITK not in self.images_dict[key].keys():
-          self.images_dict[key][ITK] = MIArray.new([None] * length, ITK,
-                                                   self.images_dict[key],
-                                                   self.data_process, self.LOW_MEM)
-
+    self.init_image_dict(value)
     self._image_keys = value
-
 
   @property
   def STD_key(self):
@@ -533,7 +535,7 @@ class GeneralMI(AbstractGeneralMI):
     return stat_dict
 
   @classmethod
-  def get_test_sample(cls, csv_path):
+  def get_test_sample(cls, csv_path, img_keys=None):
     img_dict = {}
     data = np.genfromtxt(csv_path, delimiter=',',
                          dtype=str)
@@ -562,7 +564,7 @@ class GeneralMI(AbstractGeneralMI):
       'clip': None,  # [1, None]
     }
 
-    image_keys = ['30G', 'CT', '240S']
+    image_keys = img_keys if img_keys else ['30G', 'CT', '240S']
 
     test = cls(img_dict, image_keys, pid=pid,
                img_type=img_type, process_param=process_param)

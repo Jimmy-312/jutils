@@ -65,47 +65,24 @@ def init_data(data_set, csv_path, img_type, process_param):
 if __name__ == '__main__':
   testset = ['30G', '240G']
   datacsv = '/z3/home/xai_test/xai-omics/data/02-RLD/rld_data.csv'
-  process_param = {
-    'ct_window': None,
-    'norm': 'PET',  # only min-max,
-    'shape': [440, 440, 560],  # [320, 320, 240]
-    'crop': [0, 0, 5],  # [30, 30, 10]
-    'clip': None,  # [1, None]
-  }
 
-  img_type = {
-    'CT': ['CT'],
-    'PET': ['30G', '20S', '40S',
-            '60G-1', '60G-2', '60G-3',
-            '90G', '120S', '120G', '240G', '240S'],
-    'MASK': ['CT_seg'],
-    'STD': ['30G'],
-  }
+  mi_data = GeneralMI.get_test_sample(datacsv, testset)
 
-  mi_data = init_data(testset, datacsv, img_type, process_param)
+  # mi_data.pre_load(threads=48)
+  # dataset = MIDataset(
+  #   mi_data, 
+  #   crop_window=(64, 64),
+  #   flatten3d=True
+  # )
+  # loader = DataLoader(
+  #     dataset,
+  #     batch_size=4,
+  #     shuffle=True,
+  #     num_workers=32,
+  #     drop_last=True
+  # )
 
-  dataset = MIDataset(
-    mi_data, 
-    crop_window=(64, 64),
-    flatten3d=True
-  )
-  loader = DataLoader(
-      dataset,
-      batch_size=4,
-      shuffle=True,
-      num_workers=32,
-      drop_last=True
-  )
-
-  for i, data in enumerate(loader):
-    # print(data, i)
-    break
-
-  import matplotlib as mpl
-
-  mpl.use('Agg')
-  import matplotlib.pyplot as plt
-
-  print(data['240G'].shape)
-  # plt.imshow(data['30G'][0, 0, 32])
+  # import matplotlib.pyplot as plt
+  
+  # plt.imshow(mi_data.images_dict['30G']['img'][0][200])
   # plt.savefig('test.png')
