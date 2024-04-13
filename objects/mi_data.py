@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-from objects.general_mi import GeneralMI
+from objects import GeneralMI
 from utils.img_process import gen_windows
 
 import numpy as np
