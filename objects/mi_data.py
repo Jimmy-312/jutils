@@ -1,6 +1,6 @@
-from torch.utils.data import DataLoader, Dataset
-from general_mi import GeneralMI
-from img_process import gen_windows
+from torch.utils.data import Dataset
+from objects.general_mi import GeneralMI
+from utils.img_process import gen_windows
 
 import numpy as np
 
@@ -38,27 +38,6 @@ class MIDataset(Dataset):
     return np.expand_dims(data, axis=0)
 
 
-def init_data(data_set, csv_path, img_type, process_param):
-  data = np.genfromtxt(csv_path, delimiter=',', dtype=str)
-  types = data[0][1:]
-  pid = data[1:, 0]
-  path_array = data[1:, 1:]
-
-  img_dict = {}
-  for i, type_name in enumerate(types):
-    img_path = path_array[:, i]
-    img_dict[type_name] = {'path': img_path}
-
-  mi_data = GeneralMI(img_dict,
-                      image_keys=data_set,
-                      label_keys=[],
-                      pid=pid, process_param=process_param, img_type=img_type)
-  total_data = len(mi_data)
-  mi_data.rm_void_data()
-  print(f"Loaded data: {len(mi_data)}/{total_data}")
-
-  return mi_data
-
 
 
 
@@ -82,7 +61,7 @@ if __name__ == '__main__':
   #     drop_last=True
   # )
 
-  # import matplotlib.pyplot as plt
+  import matplotlib.pyplot as plt
   
-  # plt.imshow(mi_data.images_dict['30G']['img'][0][200])
-  # plt.savefig('test.png')
+  plt.imshow(mi_data.images['30G'][0][200], cmap='gist_yarg')
+  plt.savefig('test.png')

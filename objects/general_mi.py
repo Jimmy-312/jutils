@@ -6,7 +6,7 @@ import joblib
 from skimage.transform import radon, iradon
 from tqdm import tqdm
 from threading import Thread
-from img_process import crop_image, resize_image, \
+from utils.img_process import crop_image, resize_image, \
   resample_image_by_spacing, get_suv_factor
   
 
@@ -80,9 +80,9 @@ class MIArray(np.ndarray):
         if not isinstance(val, sitk.Image):
           out_arr = np.array([None] * len(val))
           for i, item in enumerate(val):
-            out_arr[i] = sitk.GetArrayViewFromImage(item)
+            out_arr[i] = sitk.GetArrayViewFromImage(item).astype(np.float32)
         else:
-          out_arr = sitk.GetArrayViewFromImage(val)
+          out_arr = sitk.GetArrayViewFromImage(val).astype(np.float32)
       return out_arr
     
   def get_data(self, nick_name):
@@ -307,6 +307,28 @@ class AbstractGeneralMI:
           self.images_dict[key][ITK] = MIArray.new([None] * length, ITK,
                                                    self.images_dict[key],
                                                    self.data_process, self.LOW_MEM)
+          
+  @classmethod
+  def init_data(cls, img_keys, csv_path, img_type, process_param):
+    data = np.genfromtxt(csv_path, delimiter=',', dtype=str)
+    types = data[0][1:]
+    pid = data[1:, 0]
+    path_array = data[1:, 1:]
+
+    img_dict = {}
+    for i, type_name in enumerate(types):
+      img_path = path_array[:, i]
+      img_dict[type_name] = {'path': img_path}
+
+    mi_data = cls(img_dict,
+                  image_keys=img_keys,
+                  label_keys=[],
+                  pid=pid, process_param=process_param, img_type=img_type)
+    total_data = len(mi_data)
+    mi_data.rm_void_data()
+    print(f"Loaded data: {len(mi_data)}/{total_data}")
+
+    return mi_data
 
   # endregion: basic function
 
@@ -536,16 +558,6 @@ class GeneralMI(AbstractGeneralMI):
 
   @classmethod
   def get_test_sample(cls, csv_path, img_keys=None):
-    img_dict = {}
-    data = np.genfromtxt(csv_path, delimiter=',',
-                         dtype=str)
-    types = data[0][1:]
-    pid = data[1:, 0]
-    path_array = data[1:, 1:]
-
-    for i, type_name in enumerate(types):
-      img_path = path_array[:, i]
-      img_dict[type_name] = {PATH: img_path}
 
     img_type = {
       'CT': ['CT'],
@@ -566,9 +578,7 @@ class GeneralMI(AbstractGeneralMI):
 
     image_keys = img_keys if img_keys else ['30G', 'CT', '240S']
 
-    test = cls(img_dict, image_keys, pid=pid,
-               img_type=img_type, process_param=process_param)
-    test.rm_void_data()
+    test = cls.init_data(image_keys, csv_path, img_type, process_param)
     return test
 
   # endregion: test functions
