@@ -5,7 +5,7 @@ import joblib
 from skimage.transform import radon, iradon
 from tqdm import tqdm
 from threading import Thread
-from utils.img_process import crop_image, resize_image, \
+from ..utils.img_process import crop_image, resize_image, \
   resample_image_by_spacing, get_suv_factor
   
 

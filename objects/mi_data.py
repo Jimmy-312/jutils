@@ -1,8 +1,9 @@
 from torch.utils.data import Dataset
-from objects import GeneralMI
-from utils.img_process import gen_windows
+from . import GeneralMI
+from ..utils.img_process import gen_windows
 
 import numpy as np
+import random
 
 
 
@@ -11,13 +12,15 @@ class MIDataset(Dataset):
       self,
       mi_data: GeneralMI,
       crop_window: tuple = None,
-      flatten3d: bool = False
+      flatten3d: bool = False,
+      random_flip: bool = True
   ):
     super().__init__()
     self.mi_data = mi_data
     self.img_types = set(mi_data.image_keys + mi_data.label_keys)
     self.flatten3d = flatten3d
     self.crop_window = crop_window
+    self.random_flip = random_flip
 
   def __len__(self):
     return len(self.mi_data)
@@ -25,7 +28,7 @@ class MIDataset(Dataset):
   def __getitem__(self, item):
     data_dict = {}
     for img_type in self.img_types:
-      data_dict[img_type] = self._fetch_data(item, img_type)
+      data_dict[img_type] = self.fetch_data(item, img_type)
     return data_dict
   
   def _fetch_data(self, item, img_type):
@@ -33,8 +36,15 @@ class MIDataset(Dataset):
     if self.flatten3d:
       idx = np.random.randint(0, data.shape[0])
       data = data[idx]
+      if self.random_flip and random.random() < 0.5:
+        data = data[:, ::-1].copy()
     if self.crop_window is not None:
       data = gen_windows(data, self.crop_window)
+
+    return data
+    
+  def fetch_data(self, item, img_type):
+    data = self._fetch_data(item, img_type)
     return np.expand_dims(data, axis=0)
 
 
@@ -63,5 +73,5 @@ if __name__ == '__main__':
 
   import matplotlib.pyplot as plt
   
-  plt.imshow(mi_data.images['30G'][0][200], cmap='gist_yarg')
+  plt.imshow(mi_data.images['240G'][0][200], cmap='gist_yarg')
   plt.savefig('test.png')
