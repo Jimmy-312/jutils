@@ -1,2 +1,5 @@
 from .general_mi import GeneralMI
-from .mi_data import MIDataset
+try:
+  from .mi_data import MIDataset
+except:
+  pass
