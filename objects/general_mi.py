@@ -216,7 +216,7 @@ class AbstractGeneralMI:
   def index(self, pid):
     index = np.where(self.pid == pid)
     if len(index[0]) == 0:
-      raise ValueError('pid not found')
+      raise ValueError(f'pid {pid} not found')
     return int(index[0][0])
 
   def _remove(self, pid):
@@ -436,6 +436,10 @@ class AbstractGeneralMI:
 
     return data
 
+  @staticmethod
+  def gaussian_filter(img, sigma):
+    return sitk.SmoothingRecursiveGaussian(img, sigma)
+
   # endregion: static functions
 
 
@@ -461,6 +465,15 @@ class GeneralMI(AbstractGeneralMI):
 
     if img_type == 'PET':
       new_img = self.suv_transform(new_img, self.get_tags(item))
+      if self.process_param.get('clip'):
+        clip = self.process_param['clip']
+        if clip[0] is None:
+          clip[0] = np.min(sitk.GetArrayFromImage(new_img))
+        elif clip[1] is None:
+          clip[1] = np.max(sitk.GetArrayFromImage(new_img))
+        clip = [float(i) for i in clip]
+        new_img = sitk.IntensityWindowing(new_img, clip[0], clip[1],
+                                          clip[0], clip[1])
       if self.process_param.get('percent'):
         new_img = self.percentile(new_img, self.process_param['percent'])
     elif img_type == 'CT':
@@ -489,13 +502,6 @@ class GeneralMI(AbstractGeneralMI):
       if self.process_param.get('norm'):
         new_img = sitk.RescaleIntensity(new_img, 0.0, 1.0)
     elif 'PET' == img_type:
-      if self.process_param.get('clip'):
-        clip = self.process_param['clip']
-        if clip[0] is None:
-          clip[0] = np.min(sitk.GetArrayFromImage(new_img))
-        elif clip[1] is None:
-          clip[1] = np.max(sitk.GetArrayFromImage(new_img))
-        new_img = sitk.IntensityWindowing(new_img)
       if self.process_param.get('norm'):
         if data_type == self.STD_key:
           new_img = sitk.RescaleIntensity(new_img, 0.0, 1.0)
