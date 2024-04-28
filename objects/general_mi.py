@@ -465,17 +465,6 @@ class GeneralMI(AbstractGeneralMI):
 
     if img_type == 'PET':
       new_img = self.suv_transform(new_img, self.get_tags(item))
-      if self.process_param.get('clip'):
-        clip = self.process_param['clip']
-        if clip[0] is None:
-          clip[0] = np.min(sitk.GetArrayFromImage(new_img))
-        elif clip[1] is None:
-          clip[1] = np.max(sitk.GetArrayFromImage(new_img))
-        clip = [float(i) for i in clip]
-        new_img = sitk.IntensityWindowing(new_img, clip[0], clip[1],
-                                          clip[0], clip[1])
-      if self.process_param.get('percent'):
-        new_img = self.percentile(new_img, self.process_param['percent'])
     elif img_type == 'CT':
       if self.process_param.get('ct_window'):
         wc = self.process_param['ct_window'][0]
@@ -490,7 +479,20 @@ class GeneralMI(AbstractGeneralMI):
       new_img = GeneralMI.crop_by_margin(new_img, self.process_param['crop'])
     if self.process_param.get('shape'):
       new_img = crop_image(new_img, self.process_param['shape'])
-
+    if self.process_param.get('clip'):
+      clip = self.process_param['clip']
+      min_p = np.min(sitk.GetArrayViewFromImage(new_img))
+      max_p = np.max(sitk.GetArrayViewFromImage(new_img))
+      if clip[0] is None:
+        clip[0] = min_p
+      elif clip[1] is None:
+        clip[1] = max_p
+      clip[0] = float(max(clip[0], min_p))
+      clip[1] = float(min(clip[1], max_p))
+      new_img = sitk.IntensityWindowing(new_img, clip[0], clip[1],
+                                        clip[0], clip[1])
+    if self.process_param.get('percent'):
+      new_img = self.percentile(new_img, self.process_param['percent'])
     return new_img
 
   def process(self, img, data_type, item):
@@ -529,7 +531,14 @@ class GeneralMI(AbstractGeneralMI):
   @staticmethod
   def suv_transform(img, tag):
     suv_factor, _, _ = get_suv_factor(tag)
-    return sitk.ShiftScale(img, 0, suv_factor)
+    return sitk.Multiply(img, suv_factor)
+
+  @staticmethod
+  def suv_reverse(img, tag):
+    suv_factor, _, _ = get_suv_factor(tag)
+    if not isinstance(img, sitk.Image):
+      img = sitk.GetImageFromArray(img.astype('int16'))
+    return sitk.DivideReal(img, suv_factor)
 
   @staticmethod
   def normalize(img, type, refer_pet=None):
