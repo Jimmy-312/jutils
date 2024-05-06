@@ -382,9 +382,11 @@ class AbstractGeneralMI:
 
   @staticmethod
   def percentile(img, percent):
-    arr = sitk.GetArrayViewFromImage(img)
+    arr = sitk.GetArrayFromImage(img)
     p = np.percentile(arr, percent)
-    arr[arr >= p] = 0
+    indices = arr >= p
+    arr[indices] = 0
+    arr[indices] = np.max(arr)
     modified_image = sitk.GetImageFromArray(arr)
     modified_image.CopyInformation(img)
     return modified_image
@@ -480,7 +482,8 @@ class GeneralMI(AbstractGeneralMI):
     if self.process_param.get('shape'):
       new_img = crop_image(new_img, self.process_param['shape'])
     if self.process_param.get('clip'):
-      clip = self.process_param['clip']
+      from copy import deepcopy
+      clip = deepcopy(self.process_param['clip'])
       min_p = np.min(sitk.GetArrayViewFromImage(new_img))
       max_p = np.max(sitk.GetArrayViewFromImage(new_img))
       if clip[0] is None:
