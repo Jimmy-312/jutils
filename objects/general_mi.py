@@ -1,6 +1,5 @@
 import numpy as np
 import SimpleITK as sitk
-import joblib
 
 from skimage.transform import radon, iradon
 from tqdm import tqdm
@@ -27,20 +26,21 @@ class MIProperty:
     pass
 
 
-class MIArray(np.ndarray):
+class MIArray:
 
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
+  def __init__(self, data):
     self.nick_name = NONAME
     self.dict = MIDictor()
     self.process_func = None
     self.LOW_MEM = False
     self.property = self.MIArrayProperty(self)
+    self.array: np.ndarray = data
+
+  def __len__(self):
+    return len(self.array)
   
   def __getitem__(self, item):
-    val = super().__getitem__(item)
-    if isinstance(val, self.__class__):
-      val = val.view(np.ndarray)
+    val = self.array[item]
     if not self.dict.auto_load:
       return val
     if isinstance(val, np.ndarray) and None in val:
@@ -53,13 +53,16 @@ class MIArray(np.ndarray):
       index2 = pos[index1]
       
       for i, j in zip(index1, index2):
-        val[i] = self[j]
+        val[i] = self.array[j]
       pass
     if val is None:
       val = self.load_data(item)
       if not self.LOW_MEM: self[item] = val
     return val
-  
+
+  def __setitem__(self, key, value):
+    self.array[key] = value
+
   def load_data(self, item):
     # make sure the item is single!
     if self.nick_name == RAW:
@@ -90,8 +93,7 @@ class MIArray(np.ndarray):
   
   @classmethod
   def new(cls, data, nick_name, dict=None, process_func=None, LOW_MEM=False):
-    data = np.array(data)
-    data = data.view(cls)
+    data = cls(data=np.array(data))
     data.nick_name = nick_name
     data.dict = dict if dict else {}
     data.process_func = process_func if process_func else (lambda x: x)
@@ -191,6 +193,15 @@ class AbstractGeneralMI:
     assert item is not np.int_
     pid = self.pid[item]
     image_dict = MIDictor()
+
+    img_dict = {}
+    for type_name in self.images_dict.keys():
+      img_dict[type_name] = {'path': []}
+    new_obj = self.__class__(img_dict, image_keys=self.image_keys,
+                             label_keys=self.label_keys,
+                             pid=pid, process_param=self.process_param,
+                             img_type=self.img_type)
+
     for key in self.images_dict.keys():
       image_dict[key] = MIDictor.new({}, key,
                                      (PATH, RAW, ITK))
@@ -201,17 +212,15 @@ class AbstractGeneralMI:
         if RAW in self.images_dict[key].keys():
           image_dict[key][RAW] = MIArray.new(self.images_dict[key][RAW][item],
                                              RAW, image_dict[key],
-                                             self.raw_process, self.LOW_MEM)
+                                             new_obj.raw_process, self.LOW_MEM)
         if ITK in self.images_dict[key].keys():
           image_dict[key][ITK] = MIArray.new(self.images_dict[key][ITK][item],
                                              ITK, image_dict[key],
-                                             self.data_process, self.LOW_MEM)
+                                             new_obj.data_process, self.LOW_MEM)
         self.images_dict[key].auto_load = True
         image_dict[key].auto_load = True
-    return self.__class__(image_dict, image_keys=self.image_keys,
-                          label_keys=self.label_keys,
-                          pid=pid, process_param=self.process_param,
-                          img_type=self.img_type)
+    new_obj.images_dict = image_dict
+    return new_obj
 
   def index(self, pid):
     index = np.where(self.pid == pid)
@@ -512,7 +521,7 @@ class GeneralMI(AbstractGeneralMI):
           new_img = sitk.RescaleIntensity(new_img, 0.0, 1.0)
         else:
           new_img = self.normalize(new_img, self.process_param['norm'],
-                                   self.images_dict[self.STD_key][RAW][item])
+                                   self.itk_raws[self.STD_key][item])
 
     return new_img
 
@@ -523,9 +532,10 @@ class GeneralMI(AbstractGeneralMI):
     return img * np.max(self.raw_images[self.STD_key][item])
 
   def get_tags(self, item):
+    from joblib import load
     filepath = self.images_dict[self.STD_key][PATH][item]\
       .replace(self.IMG_TYPE, self.PRO_TYPE)
-    return joblib.load(filepath)
+    return load(filepath)
 
   # endregion: data process
 
@@ -548,8 +558,8 @@ class GeneralMI(AbstractGeneralMI):
     if type == 'min-max':
       img = sitk.RescaleIntensity(img, 0.0, 1.0)
     elif type == 'PET':
-      assert refer_pet
-      refer_max = np.max(sitk.GetArrayFromImage(refer_pet))
+      assert refer_pet is not None
+      refer_max = np.max(sitk.GetArrayViewFromImage(refer_pet))
       img = sitk.DivideReal(img, float(refer_max))
     return img
 
@@ -589,7 +599,7 @@ class GeneralMI(AbstractGeneralMI):
       'ct_window': None,
       'norm': 'PET',  # only min-max,
       'shape': [440, 440, 560],  # [320, 320, 240]
-      'crop': [0, 0, 5],  # [30, 30, 10]
+      'crop': [0, 0, 10],  # [30, 30, 10]
       'clip': None,  # [1, None]
     }
 
