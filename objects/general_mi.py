@@ -38,7 +38,7 @@ class MIArray:
 
   def __len__(self):
     return len(self.array)
-  
+
   def __getitem__(self, item):
     val = self.array[item]
     if not self.dict.auto_load:
@@ -53,7 +53,7 @@ class MIArray:
       index2 = pos[index1]
       
       for i, j in zip(index1, index2):
-        val[i] = self.array[j]
+        val[i] = self[j]
       pass
     if val is None:
       val = self.load_data(item)
