@@ -1,77 +1,72 @@
-from torch.utils.data import Dataset
-from . import GeneralMI
-from ..utils.img_process import gen_windows
+from scipy import rand
+from torch import _test_serialization_subcmul
+from jutils.objects import GeneralMI, MIDataset
+from torch.utils.data import DataLoader, random_split
+from omegaconf import DictConfig
+from torchvision import transforms
 
-import numpy as np
-import random
+import pytorch_lightning as pl
+import torch
 
 
 
-class MIDataset(Dataset):
-  def __init__(
-      self,
-      mi_data: GeneralMI,
-      crop_window: tuple = None,
-      flatten3d: bool = False,
-      random_flip: bool = True
-  ):
+class MIData(pl.LightningDataModule):
+  def __init__(self, cfg: DictConfig):
     super().__init__()
-    self.mi_data = mi_data
-    self.img_types = set(mi_data.image_keys + mi_data.label_keys)
-    self.flatten3d = flatten3d
-    self.crop_window = crop_window
-    self.random_flip = random_flip
+    self.data_path = cfg.data_path
+    self.data_shape = cfg.data_shape
+    self.data_set = cfg.data_set
 
-  def __len__(self):
-    return len(self.mi_data)
+    self.batch_size = cfg.batch_size
+    self.test_batch_size = cfg.test_batch_size
 
-  def __getitem__(self, item):
-    data_dict = {}
-    for img_type in self.img_types:
-      data_dict[img_type] = self.fetch_data(item, img_type)
-    return data_dict
-  
-  def _fetch_data(self, item, img_type):
-    data: np.ndarray = self.mi_data.images[img_type][item]
-    if self.flatten3d:
-      idx = np.random.randint(0, data.shape[0])
-      data = data[idx]
-      if self.random_flip and random.random() < 0.5:
-        data = data[:, ::-1].copy()
-    if self.crop_window is not None:
-      data = gen_windows(data, self.crop_window)
-
-    return data
-    
-  def fetch_data(self, item, img_type):
-    data = self._fetch_data(item, img_type)
-    return np.expand_dims(data, axis=0)
+    self.transform = transforms.Compose([
+            transforms.ToTensor(),
+            ])
 
 
+  def prepare_data(self):
+    process_param = {
+      'ct_window': None,
+      'norm': 'PET',  # only min-max,
+      'shape': self.data_shape,  # [320, 320, 240]
+      'crop': [0, 0, 5],  # [30, 30, 10]
+      'clip': None,  # [1, None]
+    }
+    img_type = {
+      'CT': ['CT'],
+      'PET': ['30G', '20S', '40S',
+              '60G-1', '60G-2', '60G-3',
+              '90G', '120S', '120G', '240G', '240S'],
+      'MASK': ['CT_seg'],
+      'STD': ['30G'],
+    }
+    self.mi_data = GeneralMI.init_data(self.data_set, self.data_path, 
+                                       img_type, process_param)
+    self.mi_data.pre_load(threads=48)
+    self.dataset = MIDataset(self.mi_data, self.transform)
 
+  def setup(self, stage=None):
+    train_ratio = 0.8
+    test_radio = 0.1
+    train_size = int(train_ratio * len(self.dataset))
+    test_size = int(test_radio * len(self.dataset))
+    val_size = len(self.dataset) - train_size - test_size
 
+    self.mi_train, self.mi_val, self.mi_test = random_split(
+      self.dataset,
+      [train_size, val_size, test_size],
+      torch.manual_seed(0)
+      )
+      
+  def train_dataloader(self):
+    return DataLoader(self.mi_train, batch_size=self.batch_size, 
+                      shuffle=True, num_workers=32)
 
-if __name__ == '__main__':
-  testset = ['30G', '240G']
-  datacsv = '/z3/home/xai_test/xai-omics/data/02-RLD/rld_data.csv'
+  def val_dataloader(self):
+    return DataLoader(self.mi_val, batch_size=self.batch_size, 
+                      shuffle=False, num_workers=32)
 
-  mi_data = GeneralMI.get_test_sample(datacsv, testset)
-
-  # mi_data.pre_load(threads=48)
-  # dataset = MIDataset(
-  #   mi_data, 
-  #   crop_window=(64, 64),
-  #   flatten3d=True
-  # )
-  # loader = DataLoader(
-  #     dataset,
-  #     batch_size=4,
-  #     shuffle=True,
-  #     num_workers=32,
-  #     drop_last=True
-  # )
-
-  import matplotlib.pyplot as plt
-  
-  plt.imshow(mi_data.images['240G'][0][200], cmap='gist_yarg')
-  plt.savefig('test.png')
+  def test_dataloader(self):
+    return DataLoader(self.mi_test, batch_size=self.test_batch_size, 
+                      shuffle=False, num_workers=32)

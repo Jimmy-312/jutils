@@ -1,6 +1,7 @@
 from .general_mi import GeneralMI
 try:
-  from .mi_data import MIDataset
-  from .trainer import Trainer
+  from .mi_dataset import MIDataset
+  from .mi_data import MIData
+  from .mi_model import MIModel
 except:
   pass

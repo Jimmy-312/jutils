@@ -27,12 +27,14 @@ class MIDataset(Dataset):
   
   def _fetch_data(self, item, img_type):
     data = self.mi_data.images[img_type][item]
-    if data.shape[0] != 1:
-      data = np.expand_dims(data, axis=1)
+    if self.transforms:
+      data = self.transforms(data)
     return data
     
   def fetch_data(self, item, img_type):
-    data = self._fetch_data(item, img_type)
+    data = self._fetch_data(item, img_type)    
+    if data.shape[0] != 1:
+      data = np.expand_dims(data, axis=1)
     return data
 
 
