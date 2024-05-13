@@ -160,9 +160,10 @@ def get_random_window(arr: np.ndarray, windows_size, true_rand=False):
     norm = np.linalg.norm(arr, ord=1)
     return arr / norm
   
+  arr = np.squeeze(arr)
   assert len(arr.shape) == len(windows_size)
-  # todo: the input array should not have the channel dimension
-
+  # did: the input array should not have the channel dimension
+  
   arr = arr != 0
   # arr = arr[:, ..., 0]
 
@@ -184,9 +185,12 @@ def get_random_window(arr: np.ndarray, windows_size, true_rand=False):
 
 def get_sample(arr: np.ndarray, pos, windows_size):
   assert len(pos) == len(windows_size)
+  # supported [..., h, w] with windows [h, w]
+  indices = len(arr.shape) - len(pos)
+  assert indices >= 0
 
   for i, p, s in zip(range(len(pos)), pos, windows_size):
-    arr = np.take(arr, range(p, p + s), axis=i)
+    arr = np.take(arr, range(p, p + s), axis=i+indices)
   return arr
 
 
