@@ -85,6 +85,7 @@ class MIArray:
             out_arr[i] = sitk.GetArrayViewFromImage(item).astype(np.float32)
         else:
           out_arr = sitk.GetArrayViewFromImage(val).astype(np.float32)
+          out_arr = np.expand_dims(out_arr, axis=0)
       return out_arr
     
   def get_data(self, nick_name):
