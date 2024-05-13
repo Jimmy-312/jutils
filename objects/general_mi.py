@@ -53,8 +53,8 @@ class MIArray:
       index2 = pos[index1]
       
       for i, j in zip(index1, index2):
-        val[i] = self[j]
-      pass
+        self[i] = self[j]
+      val = self.array[item]
     if val is None:
       val = self.load_data(item)
       if not self.LOW_MEM: self[item] = val
@@ -80,7 +80,7 @@ class MIArray:
       out_arr = val
       if self.nick_name == IMG:
         if not isinstance(val, sitk.Image):
-          out_arr = np.array([None] * len(val))
+          out_arr = np.zeros((len(val), *val[0].GetSize()[::-1]), dtype=np.float32)
           for i, item in enumerate(val):
             out_arr[i] = sitk.GetArrayViewFromImage(item).astype(np.float32)
         else:
@@ -470,10 +470,12 @@ class GeneralMI(AbstractGeneralMI):
     new_img = img
     img_type = self.get_img_type(data_type)
     if img_type == 'MASK':
-      new_img = resample_image_by_spacing(new_img, (1.0, 1.0, 1.0), sitk.sitkNearestNeighbor)
+      resample_method = sitk.sitkNearestNeighbor
     else:
-      new_img = resample_image_by_spacing(new_img, (1.0, 1.0, 1.0))
+      resample_method = sitk.sitkLinear
 
+    new_img = resample_image_by_spacing(new_img, (1.0, 1.0, 1.0),
+                                        resample_method)
     if img_type == 'PET':
       new_img = self.suv_transform(new_img, self.get_tags(item))
     elif img_type == 'CT':
@@ -483,9 +485,10 @@ class GeneralMI(AbstractGeneralMI):
         new_img = sitk.IntensityWindowing(new_img, wc - wl/2, wc + wl/2, 0, 255)
       else:
         new_img = sitk.RescaleIntensity(new_img, 0, 255)
-    if img_type != 'PET':
-      std_type = self.STD_key
-      new_img = resize_image(new_img, self.images_dict[std_type][ITK][0])
+    # if img_type != 'PET' and img_type != 'MASK':
+    #   std_type = self.STD_key
+    #   new_img = resize_image(new_img, self.images_dict[std_type][ITK][item],
+    #                          resamplemethod=resample_method)
     if self.process_param.get('crop'):
       new_img = GeneralMI.crop_by_margin(new_img, self.process_param['crop'])
     if self.process_param.get('shape'):
