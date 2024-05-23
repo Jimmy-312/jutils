@@ -16,7 +16,7 @@ class MIModel(LightningModule):
   def forward(self, x):
     return self.model(x)
   
-  def training_step(self, batch, batch_idx, optimizer_idx):
+  def training_step(self, batch, batch_idx, *args, **kwargs):
     pass
 
   def validation_step(self, batch, batch_idx):
@@ -44,6 +44,11 @@ class GANMIModel(MIModel):
     super().__init__(generator, cfg, *args, **kwargs)
     self.automatic_optimization = False
     self.adversarial_loss = nn.BCELoss()
+    
+    if cfg.get('d_lr'):
+      self.d_lr = cfg.d_lr
+    else: 
+      self.d_lr = self.lr
 
     self.discriminator = discriminator
     self.z_dim = cfg.z_dim
@@ -62,5 +67,6 @@ class GANMIModel(MIModel):
     opt_g = torch.optim.Adam(self.model.parameters(), 
                              lr=self.lr, betas=betas)
     opt_d = torch.optim.Adam(self.discriminator.parameters(), 
-                             lr=self.lr, betas=betas)
+                             lr=self.d_lr, betas=betas)
     return opt_g, opt_d
+
