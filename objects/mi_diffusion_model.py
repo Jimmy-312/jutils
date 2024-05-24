@@ -26,7 +26,7 @@ class DiffusionMIModel(MIModel):
     assert self.objective in ['pred_noise', 'pred_x0']
     
     self.self_condition = cfg.get('self_condition', False)
-    self.offset_noise_strength = cfg.get('offset_noise_strength', 0.1)
+    self.offset_noise_strength = cfg.get('offset_noise_strength', 0.)
     self.is_ddim_sampling = cfg.get('ddim', False)
 
     self.normalize = self.normalize_to_neg_one_to_one if cfg.auto_normalize else identity
@@ -84,7 +84,7 @@ class DiffusionMIModel(MIModel):
     snr = alphas_cumprod / (1 - alphas_cumprod)
     maybe_clipped_snr = snr.clone()
     if cfg.get('min_snr_loss_weight', False):
-      maybe_clipped_snr.clamp_(max = cfg.min_snr_gamma)
+      maybe_clipped_snr.clamp_(max = cfg.get('min_snr_gamma', 5))
     
     if self.objective == 'pred_noise':
       self.loss_weight = maybe_clipped_snr / snr
@@ -201,7 +201,7 @@ class DiffusionMIModel(MIModel):
 
     x_start = None
 
-    for time, time_next in tqdm(time_pairs, desc = 'sampling loop time step'):
+    for time, time_next in tqdm(time_pairs, desc = 'sampling loop time step', leave=False):
       time_cond = torch.full((batch,), time, device = device, dtype = torch.long)
       self_cond = x_start if self.self_condition else None
       pred_noise, x_start, *_ = self.model_predictions(img, time_cond, self_cond, clip_x_start = True, rederive_pred_noise = True)
@@ -239,7 +239,7 @@ class DiffusionMIModel(MIModel):
 
     x_start = None
 
-    for t in tqdm(reversed(range(0, self.num_timesteps)), desc = 'sampling loop time step', total = self.num_timesteps):
+    for t in tqdm(reversed(range(0, self.num_timesteps)), desc = 'sampling loop time step', total = self.num_timesteps, leave=False):
       self_cond = x_start if self.self_condition else None
       img, x_start = self.p_sample(img, t, self_cond)
       imgs.append(img)

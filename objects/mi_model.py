@@ -35,8 +35,11 @@ class MIModel(LightningModule):
     pass
 
   def configure_optimizers(self):
-    optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
-    return optimizer
+    if hasattr(self, 'custom_optimizers'):
+      return self.custom_optimizers()
+    else:
+      optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
+      return optimizer
 
 
 class GANMIModel(MIModel):
@@ -62,7 +65,7 @@ class GANMIModel(MIModel):
   def random_z(self, n):
     return torch.randn((n, self.z_dim), device=self.device)
   
-  def configure_optimizers(self):
+  def custom_optimizers(self):
     betas = (0.5, 0.999)
     opt_g = torch.optim.Adam(self.model.parameters(), 
                              lr=self.lr, betas=betas)
