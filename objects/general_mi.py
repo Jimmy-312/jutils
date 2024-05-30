@@ -484,8 +484,8 @@ class GeneralMI(AbstractGeneralMI):
         wc = self.process_param['ct_window'][0]
         wl = self.process_param['ct_window'][1]
         new_img = sitk.IntensityWindowing(new_img, wc - wl/2, wc + wl/2, 0, 255)
-      else:
-        new_img = sitk.RescaleIntensity(new_img, 0, 255)
+      # else:
+        # new_img = sitk.RescaleIntensity(new_img, 0, 255)
     # if img_type != 'PET' and img_type != 'MASK':
     #   std_type = self.STD_key
     #   new_img = resize_image(new_img, self.images_dict[std_type][ITK][item],
