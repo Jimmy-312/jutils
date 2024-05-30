@@ -1,4 +1,5 @@
 from . import MIModel
+from .models import Unet
 from einops import rearrange, reduce
 from random import random
 from functools import partial
@@ -26,6 +27,8 @@ class DiffusionMIModel(MIModel):
     assert self.objective in ['pred_noise', 'pred_x0']
     
     self.self_condition = cfg.get('self_condition', False)
+    assert isinstance(self.model, Unet)
+    self.model.self_condition = self.self_condition
     self.offset_noise_strength = cfg.get('offset_noise_strength', 0.)
     self.is_ddim_sampling = cfg.get('ddim', False)
 
