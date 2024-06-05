@@ -185,6 +185,8 @@ class AbstractGeneralMI:
       'percent': None,  # 99.9
     } if process_param is None else process_param
 
+    self.np_data = {}
+
   # region: basic function
 
   def __len__(self):
@@ -220,6 +222,8 @@ class AbstractGeneralMI:
                                              new_obj.data_process, self.LOW_MEM)
         self.images_dict[key].auto_load = True
         image_dict[key].auto_load = True
+        if self.np_data.get(key) is not None:
+          new_obj.np_data[key] = self.np_data[key][item]
     new_obj.images_dict = image_dict
     return new_obj
 
@@ -278,7 +282,7 @@ class AbstractGeneralMI:
     slices = [list(range(i, total_num, threads)) for i in range(threads)]
     sum_num = len(slices)*len(self.image_keys)
 
-    with tqdm(total=sum_num, unit='threads') as bar:
+    with tqdm(total=sum_num, unit='threads', leave=False) as bar:
       t_list = []
 
       def load_data(key, num):
@@ -290,6 +294,11 @@ class AbstractGeneralMI:
           t_list[-1].start()
       for t in t_list:
         t.join()
+  
+  def pre_load_numpy(self):
+    for key in tqdm(self.image_keys, leave=False):
+      self.np_data[key] = self.images[key][:]
+    return self.np_data
         
   def get_img_type(self, data_type):
     # todo: std_key?
