@@ -58,13 +58,22 @@ class RandomCrop:
 
   def mult_gen(self, arr_list, refer_arr):
     num = arr_list[0].shape[0]
-    result = [np.zeros((num, ) + self.windows_size) for _ in arr_list]
-    for i in range(num):
-      self.gen_pos(refer_arr[i])
-      for j, arr in enumerate(arr_list):
-        tmp = arr[i, ..., 0] if self.is_tf else arr[i, 0]
-        result[j][i] = self(tmp)
-    channel_dim = -1 if self.is_tf else 1
+    if num == 1:
+      result = [np.zeros(self.windows_size) for _ in arr_list]
+      self.gen_pos(refer_arr[0])
+      for i, arr in enumerate(arr_list):
+        tmp = arr[0, ..., 0] if self.is_tf else arr[0, 0]
+        result[i] = self(tmp)
+      channel_dim = -1 if self.is_tf else 0
+    else:
+      result = [np.zeros((num, ) + self.windows_size) for _ in arr_list]
+      for i in range(num):
+        self.gen_pos(refer_arr[i])
+        for j, arr in enumerate(arr_list):
+          tmp = arr[i, ..., 0] if self.is_tf else arr[i, 0]
+          result[j][i] = self(tmp)
+      channel_dim = -1 if self.is_tf else 1
+
     result = [np.expand_dims(_, axis=channel_dim) for _ in result]
     return result
 

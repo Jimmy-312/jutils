@@ -39,7 +39,7 @@ class MIDataset(Dataset):
     
   def fetch_data(self, item, img_type):
     data = self._fetch_data(item, img_type)
-    if data.shape[0] != 1:
+    if self.cfg.random_crop or data.shape[0] != 1:
       data = np.expand_dims(data, axis=1)
     return data
   
