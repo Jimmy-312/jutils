@@ -3,7 +3,7 @@ import numpy as np
 
 class RandomCrop:
   def __init__(self, windows_size, arr=None, true_rand=False):
-    self.windows_size = windows_size
+    self.windows_size = tuple(windows_size)
     if windows_size is None:
       return
     self.true_rand = true_rand
@@ -54,7 +54,17 @@ class RandomCrop:
     x = np.linspace(0, distr.shape[0] - 1, distr.shape[0])
     result = np.random.choice(x, p=distr)
     return self.windows_choose(result, windows_size, distr.shape[0])
-  
+
+  def mult_gen(self, arr_list, refer_arr):
+    num = arr_list[0].shape[0]
+    result = [np.zeros((num, ) + self.windows_size) for _ in arr_list]
+    for i in range(num):
+      self.gen_pos(refer_arr[i])
+      for j, arr in enumerate(arr_list):
+        result[j][i] = self(arr[i, ..., 0])
+    result = [np.expand_dims(_, axis=-1) for _ in result]
+    return result
+
   @staticmethod
   def get_sample(arr: np.ndarray, pos, windows_size):
     assert len(pos) == len(windows_size)
