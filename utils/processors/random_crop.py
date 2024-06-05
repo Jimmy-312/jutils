@@ -2,8 +2,9 @@ import numpy as np
 
 
 class RandomCrop:
-  def __init__(self, windows_size, arr=None, true_rand=False):
+  def __init__(self, windows_size, arr=None, true_rand=False, is_tf=False):
     self.windows_size = tuple(windows_size)
+    self.is_tf = is_tf
     if windows_size is None:
       return
     self.true_rand = true_rand
@@ -61,8 +62,10 @@ class RandomCrop:
     for i in range(num):
       self.gen_pos(refer_arr[i])
       for j, arr in enumerate(arr_list):
-        result[j][i] = self(arr[i, ..., 0])
-    result = [np.expand_dims(_, axis=-1) for _ in result]
+        tmp = arr[i, ..., 0] if self.is_tf else arr[i, 0]
+        result[j][i] = self(tmp)
+    channel_dim = -1 if self.is_tf else 1
+    result = [np.expand_dims(_, axis=channel_dim) for _ in result]
     return result
 
   @staticmethod

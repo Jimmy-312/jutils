@@ -17,8 +17,9 @@ class MIDataset(Dataset):
     self.mi_data = mi_data
     self.img_types = set(mi_data.image_keys + mi_data.label_keys)
     self.cfg = cfg
-    self.processor = {}
-    self.load_processor()
+
+    if self.cfg.random_crop:
+      self.random_crop = RandomCrop(self.cfg.random_crop, true_rand=self.cfg.true_rand)
 
   # region: basic func
     
@@ -27,9 +28,9 @@ class MIDataset(Dataset):
 
   def __getitem__(self, item):
     data_dict = {}
-    self.init_processor(item)
     for img_type in self.img_types:
       data_dict[img_type] = self.fetch_data(item, img_type)
+    data_dict = self.process_data(data_dict) 
     return data_dict
   
   def _fetch_data(self, item, img_type):
@@ -38,7 +39,6 @@ class MIDataset(Dataset):
     
   def fetch_data(self, item, img_type):
     data = self._fetch_data(item, img_type)
-    data = self.process_data(data)    
     if data.shape[0] != 1:
       data = np.expand_dims(data, axis=1)
     return data
@@ -47,21 +47,12 @@ class MIDataset(Dataset):
 
   # region: processor func
 
-  def load_processor(self):
+  def process_data(self, data: dict):
     if self.cfg.random_crop:
-      self.processor['random_crop'] = RandomCrop(self.cfg.random_crop,
-                                                 true_rand=self.cfg.true_rand)
-  
-  def init_processor(self, item):
-    if isinstance(item, int):
-      if self.cfg.random_crop:
-        self.processor['random_crop'].gen_pos(
-          self.mi_data.images[self.mi_data.STD_key][item]
-        )
-  
-  def process_data(self, data):
-    if self.cfg.random_crop:
-      data = self.processor['random_crop'](data)
+      values = list(data.values())
+      refers = data[self.mi_data.STD_key]
+      values = self.random_crop.mult_gen(values, refers)
+      data = dict(zip(data.keys(), values))
     return data
   
   # endregion: processor func
