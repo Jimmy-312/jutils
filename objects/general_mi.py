@@ -63,6 +63,10 @@ class MIArray:
   def __setitem__(self, key, value):
     self.array[key] = value
 
+  def delete(self, item):
+    self.array = np.delete(self.array, item)
+    return self
+
   def load_data(self, item):
     # make sure the item is single!
     if self.nick_name == RAW:
@@ -236,6 +240,10 @@ class AbstractGeneralMI:
   def _remove(self, pid):
     for k, v in self.images_dict.items():
       self.images_dict[k][PATH] = np.delete(v[PATH], pid)
+      if RAW in v.keys():
+        self.images_dict[k][RAW] = MIArray.delete(v[RAW], pid)
+      if ITK in v.keys():
+        self.images_dict[k][ITK] = MIArray.delete(v[ITK], pid)
     self.pid = np.delete(self.pid, pid)
 
   def remove(self, pid):
