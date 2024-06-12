@@ -3,7 +3,7 @@ import SimpleITK as sitk
 
 from skimage.transform import radon, iradon
 from tqdm import tqdm
-from threading import Thread
+from threading import Thread, Lock
 from ..utils.img_process import crop_image, resize_image, \
   resample_image_by_spacing, get_suv_factor
   
@@ -290,12 +290,16 @@ class AbstractGeneralMI:
     slices = [list(range(i, total_num, threads)) for i in range(threads)]
     sum_num = len(slices)*len(self.image_keys)
 
+    lock = Lock()
+
     with tqdm(total=sum_num, unit='threads', leave=False) as bar:
       t_list = []
 
       def load_data(key, num):
-        self.images[key][num]
-        bar.update(1)
+        # todo: threading security!!!!!
+        with lock:
+          self.images[key][num]
+          bar.update(1)
       for key in self.image_keys:
         for i in range(threads):
           t_list.append(Thread(target=load_data, args=(key, slices[i])))
@@ -303,9 +307,11 @@ class AbstractGeneralMI:
       for t in t_list:
         t.join()
   
-  def pre_load_numpy(self):
+  def pre_load_numpy(self, norm=False):
     for key in tqdm(self.image_keys, leave=False):
       self.np_data[key] = self.images[key][:]
+      if norm:
+        self.np_data[key] = self.np_data[key] * 2 - 1
     return self.np_data
         
   def get_img_type(self, data_type):
