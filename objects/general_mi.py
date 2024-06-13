@@ -14,158 +14,41 @@ ITK = 'itk'
 IMG = 'img'
 NONAME = 'noname'
 
-# region: MI Basic Classes
+'''
+images_dict =
+  {
+    '30G': {
+      'path': [path1, path2, path3, ...],
+      RAW: [raw1, raw2, raw3, ...], 
+      ITK: [itk1, itk2, itk3, ...], # Simple ITK Image in numpy array
+    },
+    'CT': {
+      'path': [path1, path2, path3, ...],
+      RAW: [raw1, raw2, raw3, ...],
+      ITK: [itk1, itk2, itk3, ...], # Simple ITK Image in numpy array
+    },
+    ...
+  }
+np_data = 
+  {
+    RAW: {
+      '30G': [raw1, raw2, raw3, ...],
+      'CT': [raw1, raw2, raw3, ...],  # numpy array
+    }
+    ITK: {
+      '30G': [itk1, itk2, itk3, ...],
+      'CT': [itk1, itk2, itk3, ...],  # numpy array
+    }
+  }
+'''
 
-class MIProperty:
-
-  def __init__(self, outer=None):
-    self.nick_name = NONAME
-    self.outer = outer
-
-  def __getitem__(self, key):
-    pass
-
-
-class MIArray:
-
-  def __init__(self, data):
-    self.nick_name = NONAME
-    self.dict = MIDictor()
-    self.process_func = None
-    self.LOW_MEM = False
-    self.property = self.MIArrayProperty(self)
-    self.array: np.ndarray = data
-
-  def __len__(self):
-    return len(self.array)
-
-  def __getitem__(self, item):
-    val = self.array[item]
-    if not self.dict.auto_load:
-      return val
-    if isinstance(val, np.ndarray) and None in val:
-      if isinstance(item, slice):
-        pos = self.slice2array(item, len(self))
-      else:
-        pos = np.array(item)
-
-      index1 = np.where(val == None)[0]
-      index2 = pos[index1]
-      
-      for i, j in zip(index1, index2):
-        self[i] = self[j]
-      val = self.array[item]
-    if val is None:
-      val = self.load_data(item)
-      if not self.LOW_MEM: self[item] = val
-    return val
-
-  def __setitem__(self, key, value):
-    self.array[key] = value
-
-  def delete(self, item):
-    self.array = np.delete(self.array, item)
-    return self
-
-  def load_data(self, item):
-    # make sure the item is single!
-    if self.nick_name == RAW:
-      val = AbstractGeneralMI.load_img(self.dict[PATH][item], array=False)
-      val = self.process_func(val, self.dict.nick_name, item)
-    elif self.nick_name == ITK:
-      val = self.process_func(self.dict[RAW][item], self.dict.nick_name, item)
-    else:
-      raise ValueError(f'Unsupported nick_name {self.nick_name}')
-    return val
-  
-  class MIArrayProperty(MIProperty):
-    def __getitem__(self, key):
-      val = self.outer[key]
-      out_arr = val
-      if self.nick_name == IMG:
-        if not isinstance(val, sitk.Image):
-          out_arr = np.zeros((len(val), *val[0].GetSize()[::-1]), dtype=np.float32)
-          for i, item in enumerate(val):
-            out_arr[i] = sitk.GetArrayViewFromImage(item).astype(np.float32)
-        else:
-          out_arr = sitk.GetArrayViewFromImage(val).astype(np.float32)
-          out_arr = np.expand_dims(out_arr, axis=0)
-      return out_arr
-    
-  def get_data(self, nick_name):
-    self.property.nick_name = nick_name
-    return self.property  
-  
-  @classmethod
-  def new(cls, data, nick_name, dict=None, process_func=None, LOW_MEM=False):
-    data = cls(data=np.array(data))
-    data.nick_name = nick_name
-    data.dict = dict if dict else {}
-    data.process_func = process_func if process_func else (lambda x: x)
-    data.LOW_MEM = LOW_MEM
-    data.property = data.MIArrayProperty(data)
-    return data
-  
-  @staticmethod
-  def slice2array(item, length):
-    start = item.start if item.start else 0
-    stop = item.stop if item.stop else length
-    step = item.step if item.step else 1        
-    if start > stop:
-      start, stop = stop+1, start+1
-    if step < 0:
-      step = -step
-    pos = np.arange(start, stop, step)
-    if step < 0:
-      pos = pos[::-1]
-    return pos
-
-
-class MIDictor(dict):
-  
-  def __init__(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self.nick_name = NONAME
-    self.reserve_key = ()
-    self.auto_load = True
-    self.property = self.MIDictorProperty(self)
-
-  def __getitem__(self, key):
-    assert key in self.reserve_key or self.reserve_key == ()
-    val = super().__getitem__(key)
-    return val
-
-  @classmethod
-  def new(cls, data, nick_name=NONAME, reserve_key=()):
-    data = cls(data)
-    data.nick_name = nick_name
-    data.reserve_key = reserve_key
-    data.auto_load = True
-    return data
-  
-  class MIDictorProperty(MIProperty):
-    def __init__(self, *args, **kwargs):
-      super().__init__(*args, **kwargs)
-      self.img_type = NONAME
-
-    def __getitem__(self, key):
-      val = self.outer[key][self.nick_name].get_data(self.img_type)
-      return val 
-    
-  def get_data(self, nick_name, img_type=IMG):
-    self.property.nick_name = nick_name
-    self.property.img_type = img_type
-    return self.property
-
-# endregion: MI Basic Classes
 
 class AbstractGeneralMI:
-  def __init__(self, images_dict, image_keys=None, label_keys=None,
+  def __init__(self, images_dict: dict, image_keys=None, label_keys=None,
                pid=None, process_param=None, img_type=None,
                raw_process=None, data_process=None, post_process=None):
     self.IMG_TYPE = 'nii.gz'  # image raw file type
     self.PRO_TYPE = 'pkl'  # metadata file type of image
-    self.LOW_MEM = False
     self.pid = pid
 
     self.raw_process = (lambda x: x) if raw_process is None else raw_process
@@ -173,7 +56,8 @@ class AbstractGeneralMI:
     self.post_process = (lambda x: x) if post_process is None else post_process
 
     self._image_keys, self._label_keys = [], []
-    self.images_dict = MIDictor(images_dict)
+    self.images_dict = images_dict
+    self.np_data = {RAW: {}, ITK: {}}
     
     self.custom_dict = {}
     self.image_keys = image_keys
@@ -189,8 +73,6 @@ class AbstractGeneralMI:
       'percent': None,  # 99.9
     } if process_param is None else process_param
 
-    self.np_data = {}
-
   # region: basic function
 
   def __len__(self):
@@ -199,36 +81,28 @@ class AbstractGeneralMI:
   def __getitem__(self, item):
     assert item is not np.int_
     pid = self.pid[item]
-    image_dict = MIDictor()
 
     img_dict = {}
+    np_data = {RAW: {}, ITK: {}}
     for type_name in self.images_dict.keys():
-      img_dict[type_name] = {'path': []}
+      img_dict[type_name] = {}
+      img_dict[type_name][PATH] = self.images_dict[type_name][PATH][item]
+      keys = img_dict[type_name].keys()
+      if RAW in keys:
+        img_dict[type_name][RAW] = self.images_dict[type_name][RAW][item]
+      if ITK in keys:
+        img_dict[type_name][ITK] = self.images_dict[type_name][ITK][item]
+
+      if self.np_data[RAW].get(type_name) is not None:
+        np_data[RAW][type_name] = self.np_data[RAW][type_name][item]
+      if self.np_data[ITK].get(type_name) is not None:
+        np_data[ITK][type_name] = self.np_data[ITK][type_name][item]
+
     new_obj = self.__class__(img_dict, image_keys=self.image_keys,
                              label_keys=self.label_keys,
                              pid=pid, process_param=self.process_param,
                              img_type=self.img_type)
-
-    for key in self.images_dict.keys():
-      image_dict[key] = MIDictor.new({}, key,
-                                     (PATH, RAW, ITK))
-      image_dict[key][PATH] = self.images_dict[key][PATH][item]
-      if key in self.image_keys:
-        self.images_dict[key].auto_load = False
-        image_dict[key].auto_load = False
-        if RAW in self.images_dict[key].keys():
-          image_dict[key][RAW] = MIArray.new(self.images_dict[key][RAW][item],
-                                             RAW, image_dict[key],
-                                             new_obj.raw_process, self.LOW_MEM)
-        if ITK in self.images_dict[key].keys():
-          image_dict[key][ITK] = MIArray.new(self.images_dict[key][ITK][item],
-                                             ITK, image_dict[key],
-                                             new_obj.data_process, self.LOW_MEM)
-        self.images_dict[key].auto_load = True
-        image_dict[key].auto_load = True
-        if self.np_data.get(key) is not None:
-          new_obj.np_data[key] = self.np_data[key][item]
-    new_obj.images_dict = image_dict
+    new_obj.np_data = np_data
     return new_obj
 
   def index(self, pid):
@@ -241,9 +115,13 @@ class AbstractGeneralMI:
     for k, v in self.images_dict.items():
       self.images_dict[k][PATH] = np.delete(v[PATH], pid)
       if RAW in v.keys():
-        self.images_dict[k][RAW] = MIArray.delete(v[RAW], pid)
+        self.images_dict[k][RAW] = np.delete(v[RAW], pid)
       if ITK in v.keys():
-        self.images_dict[k][ITK] = MIArray.delete(v[ITK], pid)
+        self.images_dict[k][ITK] = np.delete(v[ITK], pid)
+    for k, v in self.np_data[RAW].items():
+      self.np_data[RAW][k] = np.delete(v, pid)
+    for k, v in self.np_data[ITK].items():
+      self.np_data[ITK][k] = np.delete(v, pid)
     self.pid = np.delete(self.pid, pid)
 
   def remove(self, pid):
@@ -255,7 +133,7 @@ class AbstractGeneralMI:
       assert len(pid) != 0
       in_type = set([type(_) for _ in pid])
       assert len(in_type) == 1
-
+      
       if in_type == {int}:
         self._remove(pid)
         return
@@ -276,10 +154,11 @@ class AbstractGeneralMI:
 
   def clean_mem(self):
     self.init_image_dict(self.image_keys, reset=True)
-  
+
   def pre_load(self, threads=4):
     if threads == 1:
       # todo: add progress bar
+      assert False, 'not implemented'
       for key in self.image_keys:
         self.images[key][:]
       return
@@ -288,31 +167,34 @@ class AbstractGeneralMI:
     if threads > total_num:
       threads = total_num
     slices = [list(range(i, total_num, threads)) for i in range(threads)]
-    sum_num = len(slices)*len(self.image_keys)
+    sum_num = len(slices) * (len(self.image_keys) - 1)
 
-    lock = Lock()
+    # lock = Lock()
 
     with tqdm(total=sum_num, unit='threads', leave=False) as bar:
       t_list = []
 
-      def load_data(key, num):
-        # todo: threading security!!!!!
-        with lock:
-          self.images[key][num]
-          bar.update(1)
+      def load_imgdata(self, key, slices):
+        for num in slices:
+          path = self.images_dict[key][PATH][num]
+          local_img = self.load_img(path)
+          raw_img = self.raw_process(local_img, key, num)
+          if key != self.STD_key:
+            load_imgdata(self, self.STD_key, [num])
+          data_img = self.data_process(raw_img, key, num)
+          self.images_dict[key][RAW][num] = raw_img
+          self.images_dict[key][ITK][num] = data_img
+          self.np_data[RAW][key][num] = sitk.GetArrayViewFromImage(raw_img)
+          self.np_data[ITK][key][num] = sitk.GetArrayFromImage(data_img)
+        bar.update(1)
+
       for key in self.image_keys:
+        if key == self.STD_key: continue
         for i in range(threads):
-          t_list.append(Thread(target=load_data, args=(key, slices[i])))
+          t_list.append(Thread(target=load_imgdata, args=(self, key, slices[i])))
           t_list[-1].start()
       for t in t_list:
         t.join()
-  
-  def pre_load_numpy(self, norm=False):
-    for key in tqdm(self.image_keys, leave=False):
-      self.np_data[key] = self.images[key][:]
-      if norm:
-        self.np_data[key] = self.np_data[key] * 2 - 1
-    return self.np_data
         
   def get_img_type(self, data_type):
     # todo: std_key?
@@ -325,20 +207,12 @@ class AbstractGeneralMI:
     for key in value:
       assert key in self.images_dict.keys()
       if key not in self.image_keys or reset:
-        if not isinstance(self.images_dict[key], MIDictor):
-          self.images_dict[key] = MIDictor.new(self.images_dict[key], key,
-                                               (PATH, RAW, ITK))
-        
         length = len(self.images_dict[key][PATH])
-        self.images_dict[key][PATH] = self.images_dict[key][PATH]
         if RAW not in self.images_dict[key].keys() or reset:
-          self.images_dict[key][RAW] = MIArray.new([None] * length, RAW,
-                                                   self.images_dict[key],
-                                                   self.raw_process, self.LOW_MEM)
-        if ITK not in self.images_dict[key].keys() or reset:
-          self.images_dict[key][ITK] = MIArray.new([None] * length, ITK,
-                                                   self.images_dict[key],
-                                                   self.data_process, self.LOW_MEM)
+          self.images_dict[key][RAW] = np.array([None] * length)
+          self.images_dict[key][ITK] = np.array([None] * length)
+        self.np_data[RAW][key] = np.array([None] * length)
+        self.np_data[ITK][key] = np.array([None] * length)
           
   @classmethod
   def init_data(cls, img_keys, csv_path, img_type, process_param):
@@ -369,22 +243,28 @@ class AbstractGeneralMI:
   @property
   def images(self):
     # return numpy.ndarray type img
-    return self.images_dict.get_data(ITK)
+    return self.np_data[ITK]
   
   @property
   def raw_images(self):
     # return numpy.ndarray type img without process
-    return self.images_dict.get_data(RAW)
+    return self.np_data[RAW]
 
   @property
   def itk_imgs(self):
     # return sitk.Image type img
-    return self.images_dict.get_data(ITK, ITK)
+    itk_dict = {}
+    for key in self.image_keys:
+      itk_dict[key] = self.images_dict[key][ITK]
+    return itk_dict
 
   @property
   def itk_raws(self):
     # return sitk.Image type img without process
-    return self.images_dict.get_data(RAW, ITK)
+    itk_dict = {}
+    for key in self.image_keys:
+      itk_dict[key] = self.images_dict[key][RAW]  
+    return itk_dict
 
   @property
   def image_keys(self):
