@@ -184,8 +184,8 @@ class AbstractGeneralMI:
           data_img = self.data_process(raw_img, key, num)
           self.images_dict[key][RAW][num] = raw_img
           self.images_dict[key][ITK][num] = data_img
-          self.np_data[RAW][key][num] = sitk.GetArrayViewFromImage(raw_img)
-          self.np_data[ITK][key][num] = sitk.GetArrayFromImage(data_img)
+          self.np_data[RAW][key][num] = sitk.GetArrayViewFromImage(raw_img).astype(np.float32)
+          self.np_data[ITK][key][num] = sitk.GetArrayFromImage(data_img).astype(np.float32)
         if key != self.STD_key:
           bar.update(1)
 
