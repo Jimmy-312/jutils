@@ -17,6 +17,7 @@ class MIDataset(Dataset):
     self.mi_data = mi_data
     self.img_types = set(mi_data.image_keys + mi_data.label_keys)
     self.cfg = cfg
+    self.extra_test = False
 
     if self.cfg.get('random_crop'):
       self.random_crop = RandomCrop(self.cfg.random_crop, true_rand=self.cfg.true_rand)
@@ -27,15 +28,20 @@ class MIDataset(Dataset):
     return len(self.mi_data)
 
   def __getitem__(self, item):
-    
     data_dict = {}
     for img_type in self.img_types:
       data_dict[img_type] = self.fetch_data(item, img_type)
     data_dict = self.process_data(data_dict) 
+    if self.extra_test:
+      data_dict['PID'] = self.mi_data.pid[item]
+      norm_list = []
+      for i in self.mi_data.raw_images[self.mi_data.STD_key]:
+        norm_list.append(np.max(i))
+      data_dict['norm'] = norm_list
     return data_dict
   
   def _fetch_data(self, item, img_type):
-    data = self.mi_data.np_data[img_type][item]
+    data = self.mi_data.images[img_type][item] * 2 - 1
     if isinstance(item, int):
       data = np.expand_dims(data, axis=0)
     return data

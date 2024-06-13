@@ -2,16 +2,29 @@ import torch
 import torch.nn as nn
 
 from lightning import LightningModule
+from os import makedirs
 
 
 
 class MIModel(LightningModule):
   # Abstract Class
   
-  def __init__(self, model, cfg, *args, **kwargs):
+  def __init__(self, model, cfg, *args, output_dir=None, **kwargs):
     super().__init__()
     self.model = model
+    self.cfg = cfg
     self.lr = cfg.lr
+    self._output_dir = output_dir
+
+  @property
+  def output_dir(self):
+    return self._output_dir
+  
+  @output_dir.setter
+  def output_dir(self, value):
+    self._output_dir = value
+    if value is not None:
+      makedirs(value, exist_ok=True)
 
   def forward(self, x):
     return self.model(x)
@@ -54,22 +67,22 @@ class GANMIModel(MIModel):
       self.d_lr = self.lr
 
     self.discriminator = discriminator
-    self.z_dim = cfg.z_dim
+    self.z_dim = cfg.get('z_dim', None)
 
-    self.g_acc_bs = cfg.g_acc
-    self.d_acc_bs = cfg.d_acc
+    self.g_acc_bs = cfg.get('g_acc', 1)
+    self.d_acc_bs = cfg.get('d_acc', 1)
   
   def generate(self, *args):
     return self.model(*args)
   
   def random_z(self, n):
+    assert self.z_dim is not None, "z_dim is not defined"
     return torch.randn((n, self.z_dim), device=self.device)
   
   def custom_optimizers(self):
-    betas = (0.5, 0.999)
     opt_g = torch.optim.Adam(self.model.parameters(), 
-                             lr=self.lr, betas=betas)
+                             lr=self.lr)
     opt_d = torch.optim.Adam(self.discriminator.parameters(), 
-                             lr=self.d_lr, betas=betas)
+                             lr=self.d_lr)
     return opt_g, opt_d
 
