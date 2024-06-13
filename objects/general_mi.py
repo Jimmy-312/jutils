@@ -186,7 +186,8 @@ class AbstractGeneralMI:
           self.images_dict[key][ITK][num] = data_img
           self.np_data[RAW][key][num] = sitk.GetArrayViewFromImage(raw_img)
           self.np_data[ITK][key][num] = sitk.GetArrayFromImage(data_img)
-        bar.update(1)
+        if key != self.STD_key:
+          bar.update(1)
 
       for key in self.image_keys:
         if key == self.STD_key: continue
