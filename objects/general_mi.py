@@ -87,7 +87,7 @@ class AbstractGeneralMI:
     for type_name in self.images_dict.keys():
       img_dict[type_name] = {}
       img_dict[type_name][PATH] = self.images_dict[type_name][PATH][item]
-      keys = img_dict[type_name].keys()
+      keys = self.images_dict[type_name].keys()
       if RAW in keys:
         img_dict[type_name][RAW] = self.images_dict[type_name][RAW][item]
       if ITK in keys:
