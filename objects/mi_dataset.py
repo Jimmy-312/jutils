@@ -34,14 +34,17 @@ class MIDataset(Dataset):
     data_dict = self.process_data(data_dict) 
     if self.extra_test:
       data_dict['PID'] = self.mi_data.pid[item]
-      norm_list = []
-      for i in self.mi_data.raw_images[self.mi_data.STD_key]:
-        norm_list.append(np.max(i))
-      data_dict['norm'] = norm_list
+      data_dict['norm'] = np.max(self.mi_data.raw_images[self.mi_data.STD_key][item])
+      itk = self.mi_data.itk_raws[self.mi_data.STD_key][item]
+      data_dict['params'] = {
+        'spacing': itk.GetSpacing(), 
+        'origin': itk.GetOrigin(), 
+        'direction': itk.GetDirection()
+      }
     return data_dict
   
   def _fetch_data(self, item, img_type):
-    data = self.mi_data.images[img_type][item] * 2 - 1
+    data = self.mi_data.images[img_type][item]
     if isinstance(item, int):
       data = np.expand_dims(data, axis=0)
     return data

@@ -59,8 +59,8 @@ class GANMIModel(MIModel):
   def __init__(self, generator, discriminator, cfg, *args, **kwargs):
     super().__init__(generator, cfg, *args, **kwargs)
     self.automatic_optimization = False
-    self.adversarial_loss = nn.BCELoss()
-    
+    self.adversarial_loss = nn.BCEWithLogitsLoss()
+
     if cfg.get('d_lr'):
       self.d_lr = cfg.d_lr
     else: 
@@ -71,7 +71,7 @@ class GANMIModel(MIModel):
 
     self.g_acc_bs = cfg.get('g_acc', 1)
     self.d_acc_bs = cfg.get('d_acc', 1)
-  
+
   def generate(self, *args):
     return self.model(*args)
   
